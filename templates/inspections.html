@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}抽检列表 · {{ lab }}{% endblock %}
+{% block content %}
+<p class="crumb"><a href="/jobs/">← 返回列表</a></p>
+<h1>抽检列表</h1>
+<p class="lede">过不过由后台裁定；通过态与待复核态分开列出，命中样例可展开查看。</p>
+<p class="hint">当日策略：比例 {{ policy.ratio }}% · 失败走法 {{ policy.route_label }} · {{ policy.route_pin_label }}</p>
+
+<h2>通过态 <span class="count">{{ passed|length }}</span></h2>
+{% if passed %}
+<table class="grid">
+  <thead><tr><th>#</th><th>任务</th><th>轮次</th><th>比例</th><th>抽检/通过</th><th>走法</th><th>裁定</th><th>样例</th></tr></thead>
+  <tbody>
+  {% for i in passed %}
+    <tr>
+      <td>{{ i.id }}</td>
+      <td><a href="/jobs/{{ i.job_id }}/">{{ i.job.title }}</a></td>
+      <td>{{ i.parse_round }}</td>
+      <td>{{ i.ratio }}%</td>
+      <td>{{ i.sampled }} / {{ i.passed }}（{{ i.pass_percent }}%）</td>
+      <td>{{ i.route_label }}{% if i.deviated %} <span class="chip bad">走法偏了</span>{% endif %}</td>
+      <td><span class="chip ok">{{ i.status }}</span></td>
+      <td>
+        <details><summary>展开 {{ i.sampled }} 条</summary>
+          <ul class="sample-list">
+          {% for s in i.sample_rows %}
+            <li class="{% if s.state == '命中' %}sample-hit{% endif %}">#{{ s.idx }} · {{ s.content }} · {{ s.state }}</li>
+          {% endfor %}
+          </ul>
+        </details>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p class="hint">暂无通过态抽检。</p>{% endif %}
+
+<h2>待复核态 <span class="count">{{ review|length }}</span></h2>
+{% if review %}
+<table class="grid">
+  <thead><tr><th>#</th><th>任务</th><th>轮次</th><th>比例</th><th>抽检/通过</th><th>命中样例</th><th>走法</th><th>裁定</th></tr></thead>
+  <tbody>
+  {% for i in review %}
+    <tr>
+      <td>{{ i.id }}</td>
+      <td><a href="/jobs/{{ i.job_id }}/">{{ i.job.title }}</a></td>
+      <td>{{ i.parse_round }}</td>
+      <td>{{ i.ratio }}%</td>
+      <td>{{ i.sampled }} / {{ i.passed }}（{{ i.pass_percent }}%）</td>
+      <td>
+        <details><summary>{{ i.hit_samples|length }} 条命中</summary>
+          <ul class="sample-list">
+          {% for s in i.sample_rows %}
+            <li class="{% if s.state == '命中' %}sample-hit{% endif %}">#{{ s.idx }} · {{ s.content }} · {{ s.state }} · {{ s.reason }}</li>
+          {% endfor %}
+          </ul>
+        </details>
+      </td>
+      <td>{{ i.route_label }}{% if i.deviated %} <span class="chip bad">走法偏了</span>{% endif %}</td>
+      <td><span class="chip warn">{{ i.status }}</span></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p class="hint">暂无待复核态抽检。</p>{% endif %}
+
+<h2>挡住 <span class="count">{{ blocked|length }}</span></h2>
+<p class="hint">整批挡住落档、退回重析或零比例失败的抽检都归在这里。</p>
+{% if blocked %}
+<table class="grid">
+  <thead><tr><th>#</th><th>任务</th><th>轮次</th><th>比例</th><th>抽检/命中</th><th>走法</th><th>裁定</th><th>样例</th></tr></thead>
+  <tbody>
+  {% for i in blocked %}
+    <tr>
+      <td>{{ i.id }}</td>
+      <td><a href="/jobs/{{ i.job_id }}/">{{ i.job.title }}</a></td>
+      <td>{{ i.parse_round }}</td>
+      <td>{{ i.ratio }}%</td>
+      <td>{{ i.sampled }} / {{ i.flagged }}</td>
+      <td>{{ i.route_label }}{% if i.deviated %} <span class="chip bad">走法偏了</span>{% endif %}</td>
+      <td><span class="chip bad">{{ i.status }}</span> {{ i.reason }}</td>
+      <td>
+        <details><summary>失败样内容</summary>
+          <ul class="sample-list">
+          {% for s in i.sample_rows %}
+            <li class="{% if s.state == '命中' %}sample-hit{% endif %}">#{{ s.idx }} · {{ s.content }} · {{ s.state }} · {{ s.reason }}</li>
+          {% endfor %}
+          </ul>
+        </details>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p class="hint">暂无被挡住的抽检。</p>{% endif %}
+
+<h2>抽检争用失败 <span class="count">{{ contended|length }}</span></h2>
+<p class="hint">同一轮次两人争抢：先到的请求裁定，后到的记争用失败。</p>
+{% if contended %}
+<table class="grid">
+  <thead><tr><th>#</th><th>任务</th><th>轮次</th><th>后到请求人</th><th>裁定</th><th>说明</th><th>争用失败样</th></tr></thead>
+  <tbody>
+  {% for i in contended %}
+    <tr>
+      <td>{{ i.id }}</td>
+      <td><a href="/jobs/{{ i.job_id }}/">{{ i.job.title }}</a></td>
+      <td>{{ i.parse_round }}</td>
+      <td>{{ i.inspector }}</td>
+      <td><span class="chip bad">{{ i.status }}</span></td>
+      <td>{{ i.reason }}</td>
+      <td>
+        {% if i.failure_samples %}
+        <details><summary>{{ i.failure_samples|length }} 条命中</summary>
+          <ul class="sample-list">
+          {% for s in i.failure_samples %}
+            <li class="sample-hit">#{{ s.idx }} · {{ s.content }} · {{ s.state }} · {{ s.reason }}</li>
+          {% endfor %}
+          </ul>
+        </details>
+        {% else %}<span class="hint">本轮先到裁定未命中</span>{% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p class="hint">暂无争用失败记录。</p>{% endif %}
+{% endblock %}

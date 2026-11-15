@@ -1,17 +1,73 @@
 {% extends "base.html" %}
 {% block title %}{{ job.title }} · {{ lab }}{% endblock %}
 {% block content %}
-<p class="crumb"><a href="/jobs/">← 返回列表</a></p>
+<p class="crumb"><a href="/jobs/">← 返回列表</a> · <a href="/inspections/">抽检列表</a></p>
 <h1>{{ job.title }}</h1>
 <dl class="meta">
   <div><dt>编码</dt><dd class="mono">{{ job.code }}</dd></div>
-  <div><dt>状态</dt><dd><span class="chip">{{ job.status }}</span></dd></div>
+  <div><dt>状态</dt><dd><span class="chip state-{{ job.status }}">{{ job.status }}</span></dd></div>
   <div><dt>源地址</dt><dd class="mono">{{ job.source_uri }}</dd></div>
+  <div><dt>解析轮次</dt><dd>{{ job.parse_round }}</dd></div>
   <div><dt>已解析</dt><dd>{{ job.parsed }}</dd></div>
   <div><dt>已入库</dt><dd>{{ job.landed }}</dd></div>
 </dl>
+
+<h2>抽检读数</h2>
+{% if summary.inspection %}
+<div class="metrics">
+  <div class="metric"><span class="k">抽检条数</span><span class="v">{{ summary.sampled }}</span></div>
+  <div class="metric"><span class="k">通过占比</span><span class="v">{{ summary.pass_percent }}%</span></div>
+  <div class="metric"><span class="k">待复核数</span><span class="v">{{ summary.review_count }}</span></div>
+  <div class="metric"><span class="k">走法名</span><span class="v route">{{ summary.route_name }}</span></div>
+</div>
+<div class="verdict">
+  <div><dt>后台裁定</dt><dd><span class="chip verdict-{{ summary.inspection.status }}">{{ summary.inspection.status }}</span> {{ summary.inspection.reason }}</dd></div>
+</div>
+{% if summary.deviation %}
+<p class="warn">走法偏了：本轮抽检走法「{{ summary.route_name }}」与当日策略「{{ policy.route_label }}」不一致，落档会被拦。</p>
+{% endif %}
+{% else %}
+<div class="metrics">
+  <div class="metric"><span class="k">抽检条数</span><span class="v">0</span></div>
+  <div class="metric"><span class="k">通过占比</span><span class="v">0%</span></div>
+  <div class="metric"><span class="k">待复核数</span><span class="v">0</span></div>
+  <div class="metric"><span class="k">走法名</span><span class="v route">未抽检</span></div>
+</div>
+<p class="hint">尚未抽检。解析后必须先抽检才许落档。</p>
+{% endif %}
+
+{% if summary.samples %}
+<details class="samples">
+  <summary>抽检逐条（{{ summary.samples|length }} 条）</summary>
+  <table class="grid">
+    <thead><tr><th>#</th><th>样例内容</th><th>抽检态</th><th>说明</th></tr></thead>
+    <tbody>
+    {% for s in summary.samples %}
+      <tr class="{% if s.state == '命中' %}sample-hit{% endif %}">
+        <td>{{ s.idx }}</td>
+        <td class="mono">{{ s.content }}</td>
+        <td><span class="chip">{{ s.state }}</span></td>
+        <td>{{ s.reason }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</details>
+{% endif %}
+
+<h2>当日抽检策略</h2>
+<dl class="meta">
+  <div><dt>抽检比例</dt><dd>{{ policy.ratio }}% · {{ policy.ratio_pin_label }}</dd></div>
+  <div><dt>失败走法</dt><dd>{{ policy.route_label }} · {{ policy.route_pin_label }}</dd></div>
+</dl>
+
+{% if readonly %}
+<p class="warn">待复核任务只读：按当日策略已放行落档，只展示不作操作。</p>
+{% else %}
 <div class="actions">
   <form method="post" action="/jobs/{{ job.id }}/parse/">{% csrf_token %}<button type="submit">执行解析</button></form>
-  <form method="post" action="/jobs/{{ job.id }}/land/">{% csrf_token %}<button type="submit" class="secondary">执行入库</button></form>
+  <form method="post" action="/jobs/{{ job.id }}/inspect/">{% csrf_token %}<button type="submit" class="secondary">执行抽检</button></form>
+  <form method="post" action="/jobs/{{ job.id }}/land/">{% csrf_token %}<button type="submit" class="secondary">执行落档</button></form>
 </div>
+{% endif %}
 {% endblock %}

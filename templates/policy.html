@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}抽检策略 · {{ lab }}{% endblock %}
+{% block content %}
+<p class="crumb"><a href="/jobs/">← 返回列表</a> · <a href="/inspections/">抽检列表</a></p>
+<h1>抽检策略</h1>
+<p class="lede">解析后先抽检才许落档；过不过由后台裁定。失败走法当日只留一种，可钉死；比例写在策略里，也可钉死。</p>
+
+{% if error %}<p class="err">{{ error }}</p>{% endif %}
+
+<dl class="meta">
+  <div><dt>策略日期</dt><dd>{{ policy.day }}</dd></div>
+  <div><dt>当前比例</dt><dd>{{ policy.ratio }}% · {{ policy.ratio_pin_label }}</dd></div>
+  <div><dt>当前失败走法</dt><dd>{{ policy.route_label }} · {{ policy.route_pin_label }}</dd></div>
+</dl>
+
+<form method="post" action="/policy/" class="policy-form">
+  {% csrf_token %}
+  <label>抽检比例（%，0 表示直接判失败，判定即拦落档）
+    {% if policy.ratio_pinned %}
+      <input name="ratio" type="hidden" value="{{ policy.ratio }}" />
+      <span class="locked mono">{{ policy.ratio }}% · 已钉死</span>
+    {% else %}
+      <input name="ratio" type="number" min="0" max="{{ max_ratio }}" value="{{ policy.ratio }}" />
+    {% endif %}
+  </label>
+  <label>抽检失败走法（当日唯一）
+    {% if policy.route_pinned %}
+      <input name="fail_route" type="hidden" value="{{ policy.fail_route }}" />
+      <span class="locked">{{ policy.route_label }} · 已钉死</span>
+    {% else %}
+      <select name="fail_route">
+        {% for value, label in routes %}
+          <option value="{{ value }}" {% if value == policy.fail_route %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    {% endif %}
+  </label>
+  <label class="check">
+    <input type="checkbox" name="route_pinned" {% if policy.route_pinned %}checked disabled{% endif %} />
+    {% if policy.route_pinned %}<input type="hidden" name="route_pinned" value="on" />{% endif %}
+    钉死走法（当日唯一，钉死后不可改、不可解除；改走法时必须勾选）
+  </label>
+  <label class="check">
+    <input type="checkbox" name="ratio_pinned" {% if policy.ratio_pinned %}checked disabled{% endif %} />
+    {% if policy.ratio_pinned %}<input type="hidden" name="ratio_pinned" value="on" />{% endif %}
+    钉死抽检比例（钉死后不可改、不可解除）
+  </label>
+  <button type="submit">保存策略</button>
+</form>
+
+<p class="hint">比例写成 0：抽检直接失败，落档一律被拦。抽检没过就拦落档；走法与策略不符同样拦。</p>
+{% endblock %}
